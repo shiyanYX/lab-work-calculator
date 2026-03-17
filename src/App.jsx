@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './App.css'
-import { calculateResult } from './utils/calculator'
+import { calculateResult, calculateLevelingExpectations } from './utils/calculator'
 
 function App() {
   const [peBoxCount, setPeBoxCount] = useState(1)
@@ -17,6 +17,7 @@ function App() {
   const [permanentLevel, setPermanentLevel] = useState('一级')
   const [isElite, setIsElite] = useState(false)
   const [result, setResult] = useState('')
+  const [levelingExpectations, setLevelingExpectations] = useState('')
 
 
   const handleCalculate = () => {
@@ -36,6 +37,20 @@ function App() {
       isElite
     )
     setResult(resultValue)
+    
+    // 计算练级期望值
+    const expectations = calculateLevelingExpectations(
+      parseFloat(initialAttribute) || 0,
+      workType,
+      dangerLevel,
+      workLevel,
+      researchBonus,
+      clerkLevel,
+      permanentLevel,
+      isElite
+    )
+    setLevelingExpectations(expectations)
+    
     // 更新初始属性值为最终属性值
     setInitialAttribute(resultValue.finalAttribute)
   }
@@ -181,6 +196,10 @@ function App() {
             计算
           </button>
 
+        </div>
+
+        <div className="result-section">
+          <h3>计算结果</h3>
           <div className="result">
             <label>增加的属性点：</label>
             <span>{result.addedPoints || 0}</span>
@@ -189,100 +208,20 @@ function App() {
             <label>最终属性值：</label>
             <span>{result.finalAttribute || 0}</span>
           </div>
-        </div>
 
-        <div className="table-section">
-          <h3>异想体输出值表</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>等级</th>
-                <th>ZAYIN</th>
-                <th>TETH</th>
-                <th>HE</th>
-                <th>WAW</th>
-                <th>ALEPH</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Ⅰ</td>
-                <td>0.6</td>
-                <td>0.6</td>
-                <td>0.72</td>
-                <td>0.84</td>
-                <td>0.6</td>
-              </tr>
-              <tr>
-                <td>Ⅱ</td>
-                <td>0.44</td>
-                <td>0.55</td>
-                <td>0.55</td>
-                <td>0.66</td>
-                <td>0.77</td>
-              </tr>
-              <tr>
-                <td>Ⅲ</td>
-                <td>0.3</td>
-                <td>0.4</td>
-                <td>0.5</td>
-                <td>0.5</td>
-                <td>0.6</td>
-              </tr>
-              <tr>
-                <td>Ⅳ</td>
-                <td>0.18</td>
-                <td>0.27</td>
-                <td>0.36</td>
-                <td>0.45</td>
-                <td>0.45</td>
-              </tr>
-              <tr>
-                <td>Ⅴ</td>
-                <td>0.08</td>
-                <td>0.16</td>
-                <td>0.24</td>
-                <td>0.32</td>
-                <td>0.4</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h3>健康状态输出值表</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>暂时输出值范围</th>
-                <th>最终输出值</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>[0, 0.1]</td>
-                <td>1.5</td>
-              </tr>
-              <tr>
-                <td>(0.1, 0.2]</td>
-                <td>1.3</td>
-              </tr>
-              <tr>
-                <td>(0.2, 0.7)</td>
-                <td>1</td>
-              </tr>
-              <tr>
-                <td>[0.7, 0.8)</td>
-                <td>0.8</td>
-              </tr>
-              <tr>
-                <td>[0.8, 0.9)</td>
-                <td>0.6</td>
-              </tr>
-              <tr>
-                <td>[0.9, +∞)</td>
-                <td>0.4</td>
-              </tr>
-            </tbody>
-          </table>
+          <h3>粗略练级期望值</h3>
+          <div className="result">
+            <label>每次工作平均增加：</label>
+            <span>{levelingExpectations.addedPerWork || 0}</span>
+          </div>
+          <div className="result">
+            <label>到下一个等级需要：</label>
+            <span>{levelingExpectations.toNextLevel || 0} 次</span>
+          </div>
+          <div className="result">
+            <label>到100属性需要：</label>
+            <span>{levelingExpectations.to100 || 0} 次</span>
+          </div>
         </div>
       </div>
     </div>

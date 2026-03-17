@@ -122,4 +122,84 @@ function calculateResult(peBoxCount, initialAttribute, workType, dangerLevel, wo
   };
 }
 
-export { calculateOutputValue, calculateResult };
+// PE-BOX最大值表
+const peBoxMax = {
+  ZAYIN: 10,
+  TETH: 12,
+  HE: 18,
+  WAW: 22,
+  ALEPH: 33
+};
+
+// 品质等级阈值
+const qualityLevelThresholds = {
+  I: 1,
+  II: 30,
+  III: 45,
+  IV: 65,
+  V: 85,
+  EX: 100
+};
+
+// 计算练级期望值
+function calculateLevelingExpectations(initialAttribute, workType, dangerLevel, workLevel, researchBonus, clerkLevel, permanentLevel, isElite) {
+  // 计算一半的PE-BOX数量（取最大值的一半）
+  const halfPeBox = peBoxMax[dangerLevel] / 2;
+  
+  // 计算扣血扣精神一半的情况
+  const beforeHealth = 100;
+  const afterHealth = 50; // 扣一半
+  const beforeMental = 100;
+  const afterMental = 50; // 扣一半
+  
+  // 计算一次工作的属性增加量
+  const result = calculateResult(
+    halfPeBox,
+    initialAttribute,
+    workType,
+    dangerLevel,
+    workLevel,
+    beforeHealth,
+    afterHealth,
+    beforeMental,
+    afterMental,
+    researchBonus,
+    clerkLevel,
+    permanentLevel,
+    isElite
+  );
+  
+  const addedPerWork = result.addedPoints;
+  
+  // 计算到下一个等级需要的次数
+  let nextLevelThreshold = 0;
+  const currentAttribute = parseFloat(initialAttribute);
+  
+  if (currentAttribute < qualityLevelThresholds.II) {
+    nextLevelThreshold = qualityLevelThresholds.II;
+  } else if (currentAttribute < qualityLevelThresholds.III) {
+    nextLevelThreshold = qualityLevelThresholds.III;
+  } else if (currentAttribute < qualityLevelThresholds.IV) {
+    nextLevelThreshold = qualityLevelThresholds.IV;
+  } else if (currentAttribute < qualityLevelThresholds.V) {
+    nextLevelThreshold = qualityLevelThresholds.V;
+  } else if (currentAttribute < qualityLevelThresholds.EX) {
+    nextLevelThreshold = qualityLevelThresholds.EX;
+  } else {
+    nextLevelThreshold = 100; // 已经达到EX等级，以100为目标
+  }
+  
+  // 计算到下一个等级需要的次数
+  const toNextLevel = nextLevelThreshold > currentAttribute ? Math.ceil((nextLevelThreshold - currentAttribute) / addedPerWork) : 0;
+  
+  // 计算到100需要的次数
+  const to100 = currentAttribute < 100 ? Math.ceil((100 - currentAttribute) / addedPerWork) : 0;
+  
+  return {
+    addedPerWork: Math.round(addedPerWork * 100) / 100,
+    toNextLevel,
+    to100
+  };
+}
+
+export { calculateOutputValue, calculateResult, calculateLevelingExpectations };
