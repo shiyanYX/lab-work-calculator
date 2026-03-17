@@ -7,6 +7,18 @@ const outputValues = {
   ALEPH: [0.6, 0.77, 0.6, 0.45, 0.4]
 };
 
+// 健康状态最终输出值转换表
+const healthStatusOutput = {
+  getFinalOutput(temporaryOutput) {
+    if (temporaryOutput <= 0.1) return 1.5;
+    if (temporaryOutput <= 0.2) return 1.3;
+    if (temporaryOutput < 0.7) return 1;
+    if (temporaryOutput < 0.8) return 0.8;
+    if (temporaryOutput < 0.9) return 0.6;
+    return 0.4;
+  }
+};
+
 // 计算异想体输出值
 function calculateOutputValue(dangerLevel, workLevel) {
   if (!outputValues[dangerLevel]) {
@@ -19,55 +31,95 @@ function calculateOutputValue(dangerLevel, workLevel) {
   return outputValues[dangerLevel][index];
 }
 
+// 计算健康状态暂时输出值
+function calculateTemporaryHealthOutput(workType, beforeHealth, afterHealth, beforeMental, afterMental) {
+  if (workType === '压迫') {
+    // 压迫工作特殊处理
+    return 1.5;
+  } else if (workType === '本能') {
+    // 本能计算现有生命值
+    return afterHealth / beforeHealth;
+  } else if (workType === '洞察') {
+    // 洞察计算现有精神值
+    return afterMental / beforeMental;
+  } else if (workType === '沟通') {
+    // 沟通输出现有生命值和精神值的平均值
+    const healthRatio = afterHealth / beforeHealth;
+    const mentalRatio = afterMental / beforeMental;
+    return (healthRatio + mentalRatio) / 2;
+  }
+  return 1;
+}
+
+// 计算培训部相关影响输出值
+function calculateTrainingOutput(researchBonus, clerkLevel, permanentLevel, isElite) {
+  // 培训部精英不享受加成
+  if (isElite) {
+    return 1;
+  }
+  
+  let totalBonus = 1;
+  
+  // 研究加成：普及培训手册
+  if (researchBonus === '有') {
+    totalBonus += 0.5;
+  }
+  
+  // 文职加成
+  const clerkBonuses = {
+    '一级': 0.01,
+    '二级': 0.03,
+    '三级': 0.05,
+    '常驻加成（四级没加成）': 0
+  };
+  totalBonus += clerkBonuses[clerkLevel] || 0;
+  
+  // 常驻加成
+  const permanentBonuses = {
+    '一级': 0.05,
+    '二级': 0.1,
+    '三级': 0.15,
+    '四级': 0
+  };
+  totalBonus += permanentBonuses[permanentLevel] || 0;
+  
+  return totalBonus;
+}
+
 // 计算结果（增加的属性点）
-function calculateResult(initialAttributes, workType, dangerLevel, workLevel, 
+function calculateResult(peBoxCount, initialAttribute, workType, dangerLevel, workLevel, 
                       beforeHealth, afterHealth, beforeMental, afterMental, 
-                      trainingBonus, clerkBonus, permanentBonus) {
+                      researchBonus, clerkLevel, permanentLevel, isElite) {
   // 计算异想体输出值
-  const outputValue = calculateOutputValue(dangerLevel, workLevel);
+  let outputValue = calculateOutputValue(dangerLevel, workLevel);
   
-  // 计算生命值变化
-  const healthChange = afterHealth - beforeHealth;
-  
-  // 计算精神值变化
-  const mentalChange = afterMental - beforeMental;
-  
-  // 计算基础结果
-  let baseResult = outputValue;
-  
-  // 应用培训加成
-  if (trainingBonus === '有') {
-    baseResult *= 1.2; // 假设培训加成为20%
+  // 压迫工作特殊处理：等级输出值需要除以3
+  if (workType === '压迫') {
+    outputValue /= 3;
   }
   
-  // 应用文职加成
-  const clerkBonusMultiplier = {
-    '一级': 1.1,
-    '二级': 1.2,
-    '三级': 1.3,
-    '常驻加成（四级没加成）': 1.0
-  }[clerkBonus] || 1.0;
-  baseResult *= clerkBonusMultiplier;
+  // 计算健康状态暂时输出值
+  const temporaryHealthOutput = calculateTemporaryHealthOutput(
+    workType, beforeHealth, afterHealth, beforeMental, afterMental
+  );
   
-  // 应用常驻加成
-  const permanentBonusMultiplier = {
-    '一级': 1.05,
-    '二级': 1.1,
-    '三级': 1.15,
-    '四级': 1.0
-  }[permanentBonus] || 1.0;
-  baseResult *= permanentBonusMultiplier;
+  // 计算健康状态最终输出值
+  const finalHealthOutput = healthStatusOutput.getFinalOutput(temporaryHealthOutput);
   
-  // 考虑生命值和精神值变化
-  if (healthChange < 0) {
-    baseResult *= 0.8; // 生命值减少时降低结果
-  }
-  if (mentalChange < 0) {
-    baseResult *= 0.8; // 精神值减少时降低结果
-  }
+  // 计算培训部相关影响输出值
+  const trainingOutput = calculateTrainingOutput(researchBonus, clerkLevel, permanentLevel, isElite);
+  
+  // 计算增加的属性点
+  const addedPoints = peBoxCount * outputValue * finalHealthOutput * trainingOutput;
+  
+  // 计算最终属性值（初始属性值 + 增加的属性点）
+  const finalAttribute = parseFloat(initialAttribute) + addedPoints;
   
   // 四舍五入到两位小数
-  return Math.round(baseResult * 100) / 100;
+  return {
+    addedPoints: Math.round(addedPoints * 100) / 100,
+    finalAttribute: Math.round(finalAttribute * 100) / 100
+  };
 }
 
 export { calculateOutputValue, calculateResult };

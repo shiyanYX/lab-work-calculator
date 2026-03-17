@@ -3,35 +3,44 @@ import './App.css'
 import { calculateResult } from './utils/calculator'
 
 function App() {
-  const [initialAttributes, setInitialAttributes] = useState('')
+  const [peBoxCount, setPeBoxCount] = useState(1)
+  const [initialAttribute, setInitialAttribute] = useState(0)
   const [workType, setWorkType] = useState('本能')
   const [dangerLevel, setDangerLevel] = useState('ZAYIN')
   const [workLevel, setWorkLevel] = useState(1)
-  const [beforeHealth, setBeforeHealth] = useState('')
-  const [afterHealth, setAfterHealth] = useState('')
-  const [beforeMental, setBeforeMental] = useState('')
-  const [afterMental, setAfterMental] = useState('')
-  const [trainingBonus, setTrainingBonus] = useState('有')
-  const [clerkBonus, setClerkBonus] = useState('一级')
-  const [permanentBonus, setPermanentBonus] = useState('一级')
+  const [beforeHealth, setBeforeHealth] = useState(100)
+  const [afterHealth, setAfterHealth] = useState(100)
+  const [beforeMental, setBeforeMental] = useState(100)
+  const [afterMental, setAfterMental] = useState(100)
+  const [researchBonus, setResearchBonus] = useState('有')
+  const [clerkLevel, setClerkLevel] = useState('一级')
+  const [permanentLevel, setPermanentLevel] = useState('一级')
+  const [isElite, setIsElite] = useState(false)
   const [result, setResult] = useState('')
+
 
   const handleCalculate = () => {
     const resultValue = calculateResult(
-      initialAttributes,
+      parseFloat(peBoxCount) || 1,
+      parseFloat(initialAttribute) || 0,
       workType,
       dangerLevel,
       workLevel,
-      parseFloat(beforeHealth) || 0,
-      parseFloat(afterHealth) || 0,
-      parseFloat(beforeMental) || 0,
-      parseFloat(afterMental) || 0,
-      trainingBonus,
-      clerkBonus,
-      permanentBonus
+      parseFloat(beforeHealth) || 100,
+      parseFloat(afterHealth) || 100,
+      parseFloat(beforeMental) || 100,
+      parseFloat(afterMental) || 100,
+      researchBonus,
+      clerkLevel,
+      permanentLevel,
+      isElite
     )
     setResult(resultValue)
+    // 更新初始属性值为最终属性值
+    setInitialAttribute(resultValue.finalAttribute)
   }
+
+
 
   return (
     <div className="app">
@@ -40,11 +49,22 @@ function App() {
       <div className="main-content">
         <div className="form-section">
           <div className="input-group">
+            <label>PE-BOX 数量：</label>
+            <input 
+              type="number" 
+              min="1" 
+              value={peBoxCount} 
+              onChange={(e) => setPeBoxCount(e.target.value)}
+            />
+          </div>
+
+          <div className="input-group">
             <label>初始属性值：</label>
             <input 
-              type="text" 
-              value={initialAttributes} 
-              onChange={(e) => setInitialAttributes(e.target.value)}
+              type="number" 
+              min="0" 
+              value={initialAttribute} 
+              onChange={(e) => setInitialAttribute(e.target.value)}
             />
           </div>
 
@@ -84,6 +104,7 @@ function App() {
             <label>工作前生命值：</label>
             <input 
               type="number" 
+              min="1" 
               value={beforeHealth} 
               onChange={(e) => setBeforeHealth(e.target.value)}
             />
@@ -93,6 +114,7 @@ function App() {
             <label>工作后生命值：</label>
             <input 
               type="number" 
+              min="1" 
               value={afterHealth} 
               onChange={(e) => setAfterHealth(e.target.value)}
             />
@@ -102,6 +124,7 @@ function App() {
             <label>工作前精神值：</label>
             <input 
               type="number" 
+              min="1" 
               value={beforeMental} 
               onChange={(e) => setBeforeMental(e.target.value)}
             />
@@ -111,14 +134,15 @@ function App() {
             <label>工作后精神值：</label>
             <input 
               type="number" 
+              min="1" 
               value={afterMental} 
               onChange={(e) => setAfterMental(e.target.value)}
             />
           </div>
 
           <div className="input-group">
-            <label>培训加成：</label>
-            <select value={trainingBonus} onChange={(e) => setTrainingBonus(e.target.value)}>
+            <label>研究加成(培训手册)：</label>
+            <select value={researchBonus} onChange={(e) => setResearchBonus(e.target.value)}>
               <option value="有">有</option>
               <option value="无">无</option>
             </select>
@@ -126,7 +150,7 @@ function App() {
 
           <div className="input-group">
             <label>文职加成：</label>
-            <select value={clerkBonus} onChange={(e) => setClerkBonus(e.target.value)}>
+            <select value={clerkLevel} onChange={(e) => setClerkLevel(e.target.value)}>
               <option value="一级">一级</option>
               <option value="二级">二级</option>
               <option value="三级">三级</option>
@@ -136,7 +160,7 @@ function App() {
 
           <div className="input-group">
             <label>常驻加成：</label>
-            <select value={permanentBonus} onChange={(e) => setPermanentBonus(e.target.value)}>
+            <select value={permanentLevel} onChange={(e) => setPermanentLevel(e.target.value)}>
               <option value="一级">一级</option>
               <option value="二级">二级</option>
               <option value="三级">三级</option>
@@ -144,13 +168,26 @@ function App() {
             </select>
           </div>
 
+          <div className="input-group">
+            <label>培训部精英：</label>
+            <input 
+              type="checkbox" 
+              checked={isElite} 
+              onChange={(e) => setIsElite(e.target.checked)}
+            />
+          </div>
+
           <button className="calculate-button" onClick={handleCalculate}>
             计算
           </button>
 
           <div className="result">
-            <label>结果(增加)：</label>
-            <span>{result}</span>
+            <label>增加的属性点：</label>
+            <span>{result.addedPoints || 0}</span>
+          </div>
+          <div className="result">
+            <label>最终属性值：</label>
+            <span>{result.finalAttribute || 0}</span>
           </div>
         </div>
 
@@ -206,6 +243,42 @@ function App() {
                 <td>0.16</td>
                 <td>0.24</td>
                 <td>0.32</td>
+                <td>0.4</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>健康状态输出值表</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>暂时输出值范围</th>
+                <th>最终输出值</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>[0, 0.1]</td>
+                <td>1.5</td>
+              </tr>
+              <tr>
+                <td>(0.1, 0.2]</td>
+                <td>1.3</td>
+              </tr>
+              <tr>
+                <td>(0.2, 0.7)</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>[0.7, 0.8)</td>
+                <td>0.8</td>
+              </tr>
+              <tr>
+                <td>[0.8, 0.9)</td>
+                <td>0.6</td>
+              </tr>
+              <tr>
+                <td>[0.9, +∞)</td>
                 <td>0.4</td>
               </tr>
             </tbody>
