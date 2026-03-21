@@ -7,15 +7,19 @@ const outputValues = {
   ALEPH: [0.6, 0.77, 0.6, 0.45, 0.4]
 };
 
-// 健康状态最终输出值转换表
+// 导入等级压制相关数据
+import { LEVEL_SUPPRESSION, LEVEL_VALUES } from './database.js';
+
+// 健康状态最终输出值转换表（根据游戏实际机制）
 const healthStatusOutput = {
   getFinalOutput(temporaryOutput) {
-    if (temporaryOutput <= 0.1) return 1.5;  // [0, 0.1] → 1.5
-    if (temporaryOutput <= 0.2) return 1.3;  // (0.1, 0.2] → 1.3
-    if (temporaryOutput < 0.7) return 1;     // (0.2, 0.7) → 1
-    if (temporaryOutput < 0.8) return 0.8;   // [0.7, 0.8) → 0.8
-    if (temporaryOutput < 0.9) return 0.6;   // [0.8, 0.9) → 0.6
-    return 0.4;                              // [0.9, +∞) → 0.4
+    if (temporaryOutput <= 0.1) return 1.5;  // [0, 0.1] → 1.5 (最佳状态)
+    if (temporaryOutput <= 0.3) return 1.3;  // (0.1, 0.3] → 1.3 (良好状态)
+    if (temporaryOutput < 0.5) return 1.1;   // (0.3, 0.5) → 1.1 (一般状态)
+    if (temporaryOutput < 0.7) return 1;     // [0.5, 0.7) → 1 (正常状态)
+    if (temporaryOutput < 0.85) return 0.9;  // [0.7, 0.85) → 0.9 (较差状态)
+    if (temporaryOutput < 0.95) return 0.8;  // [0.85, 0.95) → 0.8 (差状态)
+    return 0.7;                              // [0.95, +∞) → 0.7 (最差状态)
   }
 };
 
@@ -32,7 +36,7 @@ function calculateOutputValue(dangerLevel, workLevel) {
 }
 
 // 计算期望伤害
-function calculateExpectedDamage(peBoxCount, maxPeBox, damageType, damage, egoArmor = null) {
+function calculateExpectedDamage(peBoxCount, maxPeBox, damageType, damage, egoArmor = null, abnormalityLevel = 'ZAYIN') {
   // 计算PE-BOX数量差
   const boxDiff = maxPeBox - peBoxCount;
   
@@ -67,6 +71,19 @@ function calculateExpectedDamage(peBoxCount, maxPeBox, damageType, damage, egoAr
       break;
   }
   
+  // 计算等级压制
+  if (egoArmor) {
+    const armorLevel = egoArmor.level || 'ZAYIN';
+    const armorLevelValue = LEVEL_VALUES[armorLevel] || 1;
+    const abnormalityLevelValue = LEVEL_VALUES[abnormalityLevel] || 1;
+    const levelDifference = armorLevelValue - abnormalityLevelValue;
+    const suppressionMultiplier = LEVEL_SUPPRESSION[levelDifference.toString()] || 1.0;
+    
+    // 应用等级压制
+    healthDamage *= suppressionMultiplier;
+    mentalDamage *= suppressionMultiplier;
+  }
+  
   // 应用E.G.O护甲抗性
   if (egoArmor && egoArmor.resistances) {
     switch (damageType) {
@@ -90,18 +107,18 @@ function calculateExpectedDamage(peBoxCount, maxPeBox, damageType, damage, egoAr
 }
 
 // 计算健康状态暂时输出值
-function calculateTemporaryHealthOutput(workType, beforeHealth, afterHealth, beforeMental, afterMental) {
+function calculateTemporaryHealthOutput(workType, damageType, beforeHealth, afterHealth, beforeMental, afterMental) {
   if (workType === '压迫') {
     // 压迫工作特殊处理
     return 1.5;
-  } else if (workType === '本能') {
-    // 本能计算现有生命值
+  } else if (damageType === '物理' || damageType === '灵魂') {
+    // 物理和灵魂伤害只影响生命值
     return afterHealth / beforeHealth;
-  } else if (workType === '洞察') {
-    // 洞察计算现有精神值
+  } else if (damageType === '精神') {
+    // 精神伤害只影响精神值
     return afterMental / beforeMental;
-  } else if (workType === '沟通') {
-    // 沟通输出现有生命值和精神值的平均值
+  } else if (damageType === '侵蚀') {
+    // 侵蚀伤害同时影响生命值和精神值
     const healthRatio = afterHealth / beforeHealth;
     const mentalRatio = afterMental / beforeMental;
     return (healthRatio + mentalRatio) / 2;
@@ -158,39 +175,40 @@ function calculateResult(peBoxCount, initialAttribute, workType, dangerLevel, wo
   
   if (useExpectedDamage) {
     // 使用期望伤害计算
-    const expectedDamage = calculateExpectedDamage(peBoxCount, maxPeBox, damageType, damage, egoArmor);
+    const expectedDamage = calculateExpectedDamage(peBoxCount, maxPeBox, damageType, damage, egoArmor, dangerLevel);
     
+    // 首先计算所有伤害类型对生命值和精神值的影响
+    let expectedAfterHealth = beforeHealth;
+    let expectedAfterMental = beforeMental;
+    
+    if (damageType === '物理' || damageType === '灵魂') {
+      expectedAfterHealth = Math.max(1, beforeHealth - expectedDamage.health);
+    } else if (damageType === '精神') {
+      expectedAfterMental = Math.max(1, beforeMental - expectedDamage.mental);
+    } else if (damageType === '侵蚀') {
+      expectedAfterHealth = Math.max(1, beforeHealth - expectedDamage.health);
+      expectedAfterMental = Math.max(1, beforeMental - expectedDamage.mental);
+    }
+    
+    // 然后根据伤害类型计算健康状态暂时输出值（与工作类型无关）
     if (workType === '压迫') {
       temporaryHealthOutput = 1.5;
-    } else if (damageType === '侵蚀') {
-      // 侵蚀伤害：无论什么工作类型都同时扣除生命值和精神值
-      const expectedAfterHealth = Math.max(1, beforeHealth - expectedDamage.health);
-      const expectedAfterMental = Math.max(1, beforeMental - expectedDamage.mental);
-      const healthRatio = expectedAfterHealth / beforeHealth;
-      const mentalRatio = expectedAfterMental / beforeMental;
-      temporaryHealthOutput = (healthRatio + mentalRatio) / 2;
-    } else if (workType === '本能') {
-      // 本能计算现有生命值（考虑期望伤害）
-      const expectedAfterHealth = Math.max(1, beforeHealth - expectedDamage.health);
+    } else if (damageType === '物理' || damageType === '灵魂') {
+      // 物理和灵魂伤害只影响生命值
       temporaryHealthOutput = expectedAfterHealth / beforeHealth;
-    } else if (workType === '洞察') {
-      // 洞察计算现有精神值（考虑期望伤害）
-      const expectedAfterMental = Math.max(1, beforeMental - expectedDamage.mental);
+    } else if (damageType === '精神') {
+      // 精神伤害只影响精神值
       temporaryHealthOutput = expectedAfterMental / beforeMental;
-    } else if (workType === '沟通') {
-      // 沟通输出现有生命值和精神值的平均值（考虑期望伤害）
-      const expectedAfterHealth = Math.max(1, beforeHealth - expectedDamage.health);
-      const expectedAfterMental = Math.max(1, beforeMental - expectedDamage.mental);
-      const healthRatio = expectedAfterHealth / beforeHealth;
-      const mentalRatio = expectedAfterMental / beforeMental;
-      temporaryHealthOutput = (healthRatio + mentalRatio) / 2;
+    } else if (damageType === '侵蚀') {
+      // 侵蚀伤害同时影响生命值和精神值
+      temporaryHealthOutput = ((expectedAfterHealth / beforeHealth) + (expectedAfterMental / beforeMental)) / 2;
     } else {
       temporaryHealthOutput = 1;
     }
   } else {
     // 使用实际输入的健康状态
     temporaryHealthOutput = calculateTemporaryHealthOutput(
-      workType, beforeHealth, afterHealth, beforeMental, afterMental
+      workType, damageType, beforeHealth, afterHealth, beforeMental, afterMental
     );
   }
   
@@ -329,6 +347,19 @@ function calculateFullExpectation(
         break;
     }
     
+    // 计算等级压制
+    if (egoArmor) {
+      const armorLevel = egoArmor.level || 'ZAYIN';
+      const armorLevelValue = LEVEL_VALUES[armorLevel] || 1;
+      const abnormalityLevelValue = LEVEL_VALUES[dangerLevel] || 1;
+      const levelDifference = armorLevelValue - abnormalityLevelValue;
+      const suppressionMultiplier = LEVEL_SUPPRESSION[levelDifference.toString()] || 1.0;
+      
+      // 应用等级压制
+      expectedHealthDamage *= suppressionMultiplier;
+      expectedMentalDamage *= suppressionMultiplier;
+    }
+    
     // 应用E.G.O护甲抗性
     if (egoArmor && egoArmor.resistances) {
       switch (damageType) {
@@ -356,22 +387,30 @@ function calculateFullExpectation(
   let expectedAfterMental = 100;
   let temporaryHealthOutput;
   
-  if (damageType === '侵蚀') {
+  // 首先计算所有伤害类型对生命值和精神值的影响
+  if (damageType === '物理' || damageType === '灵魂') {
+    expectedAfterHealth = Math.max(1, beforeHealth - expectedHealthDamage);
+  } else if (damageType === '精神') {
+    expectedAfterMental = Math.max(1, beforeMental - expectedMentalDamage);
+  } else if (damageType === '侵蚀') {
     expectedAfterHealth = Math.max(1, beforeHealth - expectedHealthDamage);
     expectedAfterMental = Math.max(1, beforeMental - expectedMentalDamage);
-    temporaryHealthOutput = ((expectedAfterHealth / beforeHealth) + (expectedAfterMental / beforeMental)) / 2;
-  } else if (workType === '本能') {
-    expectedAfterHealth = Math.max(1, beforeHealth - expectedHealthDamage);
+  }
+  
+  // 然后根据伤害类型计算健康状态暂时输出值（与工作类型无关）
+  if (workType === '压迫') {
+    temporaryHealthOutput = 1.5;
+  } else if (damageType === '物理' || damageType === '灵魂') {
+    // 物理和灵魂伤害只影响生命值
     temporaryHealthOutput = expectedAfterHealth / beforeHealth;
-  } else if (workType === '洞察') {
-    expectedAfterMental = Math.max(1, beforeMental - expectedMentalDamage);
+  } else if (damageType === '精神') {
+    // 精神伤害只影响精神值
     temporaryHealthOutput = expectedAfterMental / beforeMental;
-  } else if (workType === '沟通') {
-    expectedAfterHealth = Math.max(1, beforeHealth - expectedHealthDamage);
-    expectedAfterMental = Math.max(1, beforeMental - expectedMentalDamage);
+  } else if (damageType === '侵蚀') {
+    // 侵蚀伤害同时影响生命值和精神值
     temporaryHealthOutput = ((expectedAfterHealth / beforeHealth) + (expectedAfterMental / beforeMental)) / 2;
   } else {
-    temporaryHealthOutput = 1.5;
+    temporaryHealthOutput = 1;
   }
   
   // 压迫工作特殊处理

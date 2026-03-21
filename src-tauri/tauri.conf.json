@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "lab-work-calculator",
-  "version": "0.1.0",
-  "identifier": "com.labworkcalculator.app",
+  "version": "0.2.1",
+  "identifier": "com.labworkcalculatorapp",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",

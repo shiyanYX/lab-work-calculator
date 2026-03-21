@@ -2,7 +2,7 @@
 
 // 数据库名称和版本
 const DB_NAME = 'lobotomy-corporation';
-const DB_VERSION = 15;
+const DB_VERSION = 16;
 let db = null;
 
 // 伤害类型定义
@@ -31,6 +31,30 @@ const DAMAGE_TYPES = {
     description: '百分比扣除职员的生命值',
     formula: '扣除职员生命值为：基础伤害值作为百分比乘算受击员工的最大生命值后，经过增伤-减伤公式再乘算受击员工的灵魂伤害抗性点生命值'
   }
+};
+
+// 等级压制倍率表（根据Wiki）
+const LEVEL_SUPPRESSION = {
+  // 等级数值：Z=1，T=2，H=3，W=4，A=5
+  // 公式：受到伤害者等级 - 造成伤害者等级
+  '-4': 2.0,  // 200%
+  '-3': 1.5,  // 150%
+  '-2': 1.0,  // 100%
+  '-1': 1.0,  // 100%
+  '0': 1.0,   // 100%
+  '1': 0.8,   // 80%
+  '2': 0.6,   // 60%
+  '3': 0.4,   // 40%
+  '4': 0.2    // 20%
+};
+
+// 等级数值映射
+const LEVEL_VALUES = {
+  'ZAYIN': 1,
+  'TETH': 2,
+  'HE': 3,
+  'WAW': 4,
+  'ALEPH': 5
 };
 
 // 成功率公式定义
@@ -467,5 +491,7 @@ export {
   getEgoArmorByLevel,
   getEgoArmorById,
   DAMAGE_TYPES,
-  SUCCESS_RATE_FORMULA
+  SUCCESS_RATE_FORMULA,
+  LEVEL_SUPPRESSION,
+  LEVEL_VALUES
 };

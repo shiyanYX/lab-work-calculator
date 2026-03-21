@@ -28,6 +28,7 @@ function App() {
   const [egoArmors, setEgoArmors] = useState([])
   const [selectedEgoArmor, setSelectedEgoArmor] = useState(null)
   const [filterArmorLevel, setFilterArmorLevel] = useState('ZAYIN')
+  const [testMode, setTestMode] = useState(false)
 
 
   // 初始化数据库和加载数据
@@ -49,6 +50,7 @@ function App() {
 
   const handleCalculate = () => {
     let resultValue;
+    let testDetails = {};
     
     // 完全期望计算
     if (useFullExpectation && selectedAbnormality) {
@@ -71,6 +73,29 @@ function App() {
       resultValue = {
         addedPoints: fullExpectation.expectedAddedPoints,
         finalAttribute: parseFloat(initialAttribute) || 0 + fullExpectation.expectedAddedPoints
+      }
+      
+      // 测试模式下的详细信息
+      if (testMode && selectedAbnormality) {
+        const maxPeBox = selectedAbnormality.maxPeBox || 10;
+        const expectedPeBox = fullExpectation.expectedPeBox;
+        const boxDiff = maxPeBox - expectedPeBox;
+        const expectedDamage = calculateExpectedDamage(
+          expectedPeBox,
+          maxPeBox,
+          selectedAbnormality.damageType || '物理',
+          selectedAbnormality.damage || '1-2',
+          selectedEgoArmor,
+          selectedAbnormality.level || 'ZAYIN'
+        );
+        
+        testDetails = {
+          workFailures: boxDiff,
+          physicalDamage: expectedDamage.health,
+          mentalDamage: expectedDamage.mental,
+          expectedPeBox: expectedPeBox,
+          maxPeBox: maxPeBox
+        };
       }
     } else {
       // 普通计算
@@ -97,35 +122,49 @@ function App() {
       setResult(resultValue)
 
       // 当使用期望伤害计算时，更新工作后的状态值
-      if (useExpectedDamage && selectedAbnormality) {
-        const expectedDamage = calculateExpectedDamage(
-          parseFloat(peBoxCount) || 1,
-          selectedAbnormality?.maxPeBox || 10,
-          selectedAbnormality?.damageType || '物理',
-          selectedAbnormality?.damage || '1-2',
-          selectedEgoArmor
-        )
+    if (useExpectedDamage && selectedAbnormality) {
+      const expectedDamage = calculateExpectedDamage(
+        parseFloat(peBoxCount) || 1,
+        selectedAbnormality?.maxPeBox || 10,
+        selectedAbnormality?.damageType || '物理',
+        selectedAbnormality?.damage || '1-2',
+        selectedEgoArmor,
+        selectedAbnormality?.level || 'ZAYIN'
+      )
         
         let newAfterHealth = parseFloat(beforeHealth) || 100;
         let newAfterMental = parseFloat(beforeMental) || 100;
         const damageType = selectedAbnormality?.damageType || '物理';
         
-        // 侵蚀伤害：无论什么工作类型都同时扣除生命值和精神值
-        if (damageType === '侵蚀') {
+        // 根据伤害类型决定伤害会影响生命值还是精神值（与工作类型无关）
+        if (damageType === '物理' || damageType === '灵魂') {
+          // 物理和灵魂伤害只影响生命值
+          newAfterHealth = Math.max(1, newAfterHealth - expectedDamage.health);
+        } else if (damageType === '精神') {
+          // 精神伤害只影响精神值
+          newAfterMental = Math.max(1, newAfterMental - expectedDamage.mental);
+        } else if (damageType === '侵蚀') {
+          // 侵蚀伤害同时影响生命值和精神值
           newAfterHealth = Math.max(1, newAfterHealth - expectedDamage.health);
           newAfterMental = Math.max(1, newAfterMental - expectedDamage.mental);
-        } else {
-          // 其他伤害类型：按工作类型决定
-          if (workType === '本能' || workType === '沟通') {
-            newAfterHealth = Math.max(1, newAfterHealth - expectedDamage.health);
-          }
-          if (workType === '洞察' || workType === '沟通') {
-            newAfterMental = Math.max(1, newAfterMental - expectedDamage.mental);
-          }
         }
         
         setAfterHealth(newAfterHealth);
         setAfterMental(newAfterMental);
+        
+        // 测试模式下的详细信息
+        if (testMode && selectedAbnormality) {
+          const maxPeBox = selectedAbnormality.maxPeBox || 10;
+          const boxDiff = maxPeBox - (parseFloat(peBoxCount) || 1);
+          
+          testDetails = {
+            workFailures: boxDiff,
+            physicalDamage: expectedDamage.health,
+            mentalDamage: expectedDamage.mental,
+            expectedPeBox: parseFloat(peBoxCount) || 1,
+            maxPeBox: maxPeBox
+          };
+        }
       }
       
       // 计算练级期望值
@@ -136,7 +175,7 @@ function App() {
       setLevelingExpectations(expectations)
     }
     
-    setResult(resultValue)
+    setResult({...resultValue, testDetails});
     // 更新初始属性值为最终属性值
     setInitialAttribute(resultValue.finalAttribute)
   }
@@ -381,6 +420,15 @@ function App() {
             />
           </div>
 
+          <div className="input-group">
+            <label>测试模式：</label>
+            <input 
+              type="checkbox" 
+              checked={testMode} 
+              onChange={(e) => setTestMode(e.target.checked)}
+            />
+          </div>
+
           <button className="calculate-button" onClick={handleCalculate}>
             计算
           </button>
@@ -397,6 +445,33 @@ function App() {
             <label>最终属性值：</label>
             <span>{result.finalAttribute || 0}</span>
           </div>
+
+          {/* 测试模式详细信息 */}
+          {testMode && result.testDetails && (
+            <>
+              <h3>测试模式详细信息</h3>
+              <div className="result">
+                <label>工作失败次数：</label>
+                <span>{Math.round(result.testDetails.workFailures * 100) / 100}</span>
+              </div>
+              <div className="result">
+                <label>受到的物理伤害：</label>
+                <span>{Math.round(result.testDetails.physicalDamage * 100) / 100}</span>
+              </div>
+              <div className="result">
+                <label>受到的精神伤害：</label>
+                <span>{Math.round(result.testDetails.mentalDamage * 100) / 100}</span>
+              </div>
+              <div className="result">
+                <label>期望PE-BOX：</label>
+                <span>{Math.round(result.testDetails.expectedPeBox * 100) / 100}</span>
+              </div>
+              <div className="result">
+                <label>最大PE-BOX：</label>
+                <span>{result.testDetails.maxPeBox}</span>
+              </div>
+            </>
+          )}
 
           {useFullExpectation ? (
             <>
