@@ -8,7 +8,7 @@ const outputValues = {
 };
 
 // 导入等级压制相关数据
-import { LEVEL_SUPPRESSION, LEVEL_VALUES } from './database.js';
+import { LEVEL_SUPPRESSION, LEVEL_VALUES } from '../data/constants.js';
 
 // 健康状态最终输出值转换表（根据游戏实际机制）
 const healthStatusOutput = {
